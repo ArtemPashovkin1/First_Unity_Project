@@ -1,0 +1,35 @@
+{
+    "version": 1,
+    "name": "DiceActions",
+    "maps": [
+        {
+            "name": "GamePlay",
+            "id": "c7401d65-843f-453f-80f4-1ca4846b39ff",
+            "actions": [
+                {
+                    "name": "Throw",
+                    "type": "Button",
+                    "id": "b0dcd7f4-cfd9-4ce8-91ce-1dc3252b191e",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                }
+            ],
+            "bindings": [
+                {
+                    "name": "",
+                    "id": "fe3bc958-8c52-4e1b-b0a3-70deadb29a10",
+                    "path": "<Keyboard>/space",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Throw",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                }
+            ]
+        }
+    ],
+    "controlSchemes": []
+}
