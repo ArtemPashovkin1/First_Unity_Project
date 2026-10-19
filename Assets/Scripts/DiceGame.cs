@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
@@ -6,7 +7,6 @@ using UnityEngine.UI;
 public class DiceGame : MonoBehaviour
 {
     [SerializeField] private GameObject dicePrefab;
-    [SerializeField, Min(1)] private int diceCount = 5;
     [SerializeField] private float forceMin = 4f;
     [SerializeField] private float forceMax = 6f;
     [SerializeField] private float spreadMin = 0.15f;
@@ -15,11 +15,16 @@ public class DiceGame : MonoBehaviour
     [SerializeField] private float torqueMax = 7f;
     [SerializeField] private float restTime = 0.5f;
     [SerializeField] private InputActionReference throwAction;
-    [SerializeField] private Text scoreLabel;
     [SerializeField] private Text keyLabel;
     [SerializeField] private Button rebindButton;
+    [SerializeField] private DiceUi ui;
+    [SerializeField] private TMP_InputField diceCountInput;
+    [SerializeField] private TMP_InputField loseInput;
+    [SerializeField] private TMP_InputField drawInput;
+    [SerializeField] private TMP_InputField winInput;
 
     private readonly List<Dice> dices = new List<Dice>();
+    private readonly RoundModel model = new RoundModel();
     private float restTimer;
     private bool rolling;
 
@@ -31,16 +36,17 @@ public class DiceGame : MonoBehaviour
             return;
         }
 
-        for (int i = 0; i < diceCount; i++)
-        {
-            Vector3 pos = new Vector3(Random.Range(-1.5f, 1.5f), 0.25f, Random.Range(-1.5f, 1.5f));
-            Dice dice = Instantiate(dicePrefab, pos, Quaternion.identity, transform).GetComponent<Dice>();
-            dices.Add(dice);
-        }
+        model.RandomizeThresholds();
+        SpawnDices();
 
         rebindButton.onClick.AddListener(StartRebind);
+        diceCountInput.onEndEdit.AddListener(OnInputChanged);
+        loseInput.onEndEdit.AddListener(OnInputChanged);
+        drawInput.onEndEdit.AddListener(OnInputChanged);
+        winInput.onEndEdit.AddListener(OnInputChanged);
+
         RefreshKeyLabel();
-        if (scoreLabel != null) scoreLabel.text = "Очки: —";
+        ui.Apply(model);
     }
 
     private void OnEnable()
@@ -53,13 +59,35 @@ public class DiceGame : MonoBehaviour
     {
         throwAction.action.performed -= OnThrow;
         rebindButton.onClick.RemoveListener(StartRebind);
+        diceCountInput.onEndEdit.RemoveListener(OnInputChanged);
+        loseInput.onEndEdit.RemoveListener(OnInputChanged);
+        drawInput.onEndEdit.RemoveListener(OnInputChanged);
+        winInput.onEndEdit.RemoveListener(OnInputChanged);
+    }
+
+    public void Reroll()
+    {
+        if (rolling) return;
+        model.RandomizeThresholds();
+        ApplyInputs();
+        model.ResetRoll();
+        RespawnDices();
+        Throw();
+        ui.Apply(model);
     }
 
     private void OnThrow(InputAction.CallbackContext context)
     {
+        Throw();
+    }
+
+    private void Throw()
+    {
         if (rolling) return;
         rolling = true;
         restTimer = 0f;
+        model.ResetRoll();
+        ui.Apply(model);
 
         for (int i = 0; i < dices.Count; i++)
         {
@@ -86,19 +114,53 @@ public class DiceGame : MonoBehaviour
         }
 
         restTimer = allSleep ? restTimer + Time.deltaTime : 0f;
-        if (restTimer >= restTime)
+        if (restTimer < restTime) return;
+
+        rolling = false;
+        List<int> values = new List<int>();
+        for (int i = 0; i < dices.Count; i++)
+            values.Add(dices[i].TopFace());
+        model.ApplyValues(values);
+        ui.Apply(model);
+    }
+
+    private void OnInputChanged(string value)
+    {
+        ApplyInputs();
+        ui.Apply(model);
+    }
+
+    private void ApplyInputs()
+    {
+        if (int.TryParse(diceCountInput.text, out int count))
+            model.SetDiceCount(count);
+        if (int.TryParse(loseInput.text, out int lose))
+            model.SetLose(lose);
+        if (int.TryParse(drawInput.text, out int draw))
+            model.SetDraw(draw);
+        if (int.TryParse(winInput.text, out int win))
+            model.SetWin(win);
+    }
+
+    private void SpawnDices()
+    {
+        for (int i = 0; i < model.DiceCount; i++)
         {
-            rolling = false;
-            CountScore();
+            Vector3 pos = new Vector3(Random.Range(-1.5f, 1.5f), 0.25f, Random.Range(-1.5f, 1.5f));
+            Dice dice = Instantiate(dicePrefab, pos, Quaternion.identity, transform).GetComponent<Dice>();
+            dices.Add(dice);
         }
     }
 
-    private void CountScore()
+    private void RespawnDices()
     {
-        int sum = 0;
         for (int i = 0; i < dices.Count; i++)
-            sum += dices[i].TopFace();
-        if (scoreLabel != null) scoreLabel.text = "Очки: " + sum;
+        {
+            if (dices[i] != null)
+                Destroy(dices[i].gameObject);
+        }
+        dices.Clear();
+        SpawnDices();
     }
 
     private void StartRebind()
